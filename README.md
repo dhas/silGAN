@@ -1,5 +1,6 @@
 # silGAN
 
-* Copy [this](https://studentchalmersse-my.sharepoint.com/:u:/r/personal/dhapar_net_chalmers_se/Documents/timeseries_2/silGAN/saved_logan_6292.zip?csf=1&web=1&e=754ewu) file and unzip into models/
+Code for the article - 'SilGAN - Generating driving maneuvers for scenario-based software-in-the-loop testing'. 
 
-* Run `python sample.py`
+* To train the model run `python train.py`
+* To run an example of automatic code coverage run `python search.py`
