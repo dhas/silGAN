@@ -23,7 +23,8 @@ class CompareTransformer(ast.NodeTransformer):
 			node = ast.Call(ast.Name('loss.b2f_AND', ast.Load()), calls, [])
 		else:
 			node = calls[0]
-		return node
+		return node	
+
 	
 class BranchTransformer(ast.NodeTransformer):
 	def __init__(self):
@@ -65,12 +66,21 @@ class BranchTransformer(ast.NodeTransformer):
 		return node
 
 
+class CompositeTransformer(ast.NodeTransformer):
+	def visit_BoolOp(self, node):		
+		if isinstance(node.op, ast.And):
+			op = ast.Call(ast.Name('loss.b2f_AND', ast.Load()), [node.values[0], node.values[1]], [])			
+			for val in node.values[2:]:				
+				op = ast.Call(ast.Name('loss.b2f_AND', ast.Load()), [op, val], [])			
+		return op
+
 if __name__ == '__main__':	
 	with open('test.py') as source:
 		tree = ast.parse(source.read())
 		ast.fix_missing_locations(CompareTransformer().visit(tree))
+		ast.fix_missing_locations(CompositeTransformer().visit(tree))
 		ast.fix_missing_locations(BranchTransformer().visit(tree))
-		import_node = ast.Import(names=[ast.alias(name='loss', asname=None)])
+		import_node = ast.ImportFrom(module='.', names=[ast.alias(name='loss', asname=None)], level=0)
 		tree.body.insert(2, import_node)
 		new_source = astor.to_source(tree)
 		with open('search.py', 'w') as dest:

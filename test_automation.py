@@ -124,11 +124,11 @@ if __name__ == '__main__':
 			X1 = torch.from_numpy(X1).float()
 
 			
-			X12, loss_landscape = model.flat_test_search(X1, label, search.test_fn4, num_steps=3000)
+			X12, loss_landscape = model.flat_test_search(X1, label, search.test_fn, num_steps=3000)
 
 			for x in X12[0]:
 				if not torch.isnan(x).any():
-					print(test.test_fn4(x))
+					print(test.test_fn(x))
 			utils.plot_samples(X12[0].reshape(4, 4, 3, 512),
 				savepath='%s/hits.png' % (save_dir))
 			np.save('%s/hits.npy' % save_dir, X12[0])			
