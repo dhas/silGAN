@@ -6,8 +6,6 @@ import sys
 import torch
 from r2s.dataloader import dataloader
 import utils as utils
-# import metrics
-# import templates
 
 
 def seed_fn(worker_id):
@@ -26,14 +24,13 @@ if __name__ == '__main__':
 	parser.add_argument("--n_epochs", type=int, default=10, help="number of epochs of training")
 	parser.add_argument("--batch_size", type=int, default=128, help="size of the batches")
 	parser.add_argument("--batch_lim", type=int, default=-1, help="number of batches to use in an epoch")
-	parser.add_argument("--config", default='exp', choices=['exp'], help="model config")	
+	parser.add_argument("--config", default='trans', choices=['trans' , 'exp'], help="model config")	
 	parser.add_argument("--no_log", action='store_true')
 	parser.add_argument("--lambda_gan", type=float, default=1.0)
 	parser.add_argument("--lambda_id", type=float, default=10.0)
-	parser.add_argument("--lambda_pair", type=float, default=0.0)
+	parser.add_argument("--lambda_pair", type=float, default=1.0)
 	parser.add_argument("--lambda_cyc", type=float, default=1.0)
-	parser.add_argument("--lambda_cr", type=float, default=1.0)
-	parser.add_argument("--lambda_mgan", type=float, default=0.0)
+	parser.add_argument("--lambda_cr", type=float, default=1.0)	
 	parser.add_argument("--lambda_ms2", type=float, default=0.1)
 	parser.add_argument("--lambda_ms3", type=float, default=0.3)
 	parser.add_argument("--lambda_cont", type=float, default=0.0)
@@ -53,6 +50,8 @@ if __name__ == '__main__':
 
 	if opt.config == 'exp':
 		from networks.silgan_exp import SilGAN
+	else:
+		from networks.silgan_trans import SilGAN
 
 	storage_root = '/cephyr/NOBACKUP/groups/snic2020-8-120/bilgan/'
 	log_root = '%s/logs' % storage_root
@@ -134,69 +133,19 @@ if __name__ == '__main__':
 				log_dict['M3_loss'] = loss_m3.item()
 				log_dict['CO_loss'] = loss_cont.item()
 				
-								
-				ssim_11 = []
-				ssim_22 = []
-				for seq_len in model.seq_lens:
-					if seq_len < X2_mini.shape[-1]:
-						mid = 512//2
-						shf = seq_len//2
-						_X1 = X1_mini[:, :, mid-shf: mid+shf]
-						_X2 = X2_mini[:, :, mid-shf: mid+shf]					
-					else:
-						_X1 = X1_mini
-						_X2 = X2_mini
-					for l in range(X1_mini.shape[1]):
-						X12  = model.translate(_X1, l)
-						log_dict['trans_%d_%d' % (seq_len, l)] = utils.plot_translation(_X1, l, X12)
-						
-						if seq_len == 512:
-							X121 = model.cycle_translate(X12, l)
-							log_dict['cyc_trans_%d' % l] = utils.plot_cycle_translation(_X1, l, X121)
-
-						if 'exp' in opt.config and seq_len < model.exp_len:
-							X13 = model.expand(_X1, l)
-							log_dict['exp_%d_%d' % (seq_len, l)] = utils._plot_expansion(_X1, l, X13)						
-						# X13jn, _, _, _ = model.join(X1_mini1, X1_mini, l)
-						# log_dict['fill_%d' % l] = utils.plot_join(X1_mini1, X1_mini, X13jn, l)
 				
-				X1_test, X2_test, X3_test = next(iter(test_dataloader))					
-				X11, X22 = model.reconstruct(X1_test, X2_test)				
-				# log_dict['SSIM_11'] = metrics.get_ssim(ref=X1_test, recon=X11)
-				# log_dict['SSIM_22'] = metrics.get_ssim(ref=X2_test, recon=X22)
-				
-				
-				# T1 = templates.takeoff(num=10, k=0.1)
-				# T1 = torch.from_numpy(T1).float()
-				# for l in range(T1.shape[1]):
-				# 	if not torch.isnan(T1[:, l]).any():
-				# 		T12 = model.translate(T1, l, num_styles=1)
-				# 		T12 = torch.cat((T12[0], torch.unsqueeze(T1[:, l], 1)), dim=1)
-				# 		log_dict['takeoff_trans_%d' % (l)] = utils.visualize_test_mini((T1, T12), l)
+				for l in range(X1_mini.shape[1]):
+					X12  = model.translate(X1_mini, l)
+					log_dict['trans_%d' % (l)] = utils.plot_translation(X1_mini, l, X12)
+										
+					X121 = model.cycle_translate(X12, l)
+					log_dict['cyc_trans_%d' % l] = utils.plot_cycle_translation(X1_mini, l, X121)
 
-				# 		T12, T121 = model.sweep(T1, l)
-				# 		log_dict['takeoff_sweep_%d' % (l)] = utils.plot_sweep(T12, T121, l, X1=T1)
+					if 'exp' in opt.config:
+						X13 = model.expand(X1_mini, l)
+						log_dict['exp_%d' % (l)] = utils._plot_expansion(X1_mini, l, X13)
 
-				# 		T12, T121 = model.metric_sweep(T1, l, metric_fn=metrics.batch_L1, ovsmpl=100)
-				# 		log_dict['takeoff_mlerp_%d' % (l)] = utils.plot_sweep(T12, T121, l, X1=T1)
-				# div_trn = []
-				# div_exp = []
-				# con_nrm = []
-				# con_unm = []
-				# for l in range(X1.shape[1]):				
-				# 	X12 = model.translate(X1_test, l, X2_test, num_styles=100)
-				# 	div_trn.append(metrics.batch_trn_diversity(X2, X12))
-				# 	X13 = model.expand(X1_test, l)					
-				# 	div_exp.append(metrics.batch_exp_diversity(X13))
-				# 	_, XJ1, XJ2, XJ3 = model.join(X1_test[torch.randperm(X1_test.shape[0])], X1_test, l)
-				# 	con_nrm.append(metrics.continuity(XJ1, XJ2, XJ3, normalize=True))
-				# 	con_unm.append(metrics.continuity(XJ1, XJ2, XJ3, normalize=False))
 
-				# log_dict['DIV_TRN'] = np.mean(div_trn)
-				# log_dict['DIV_EXP'] = np.mean(div_exp)
-				# log_dict['CON_NRM'] = np.mean(con_nrm)
-				# log_dict['CON_UNM'] = np.mean(con_unm)
-				
 				if (not opt.no_log):
 					utils.log_metrics(log_dict, step=batches_done)
 
